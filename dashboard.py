@@ -18,7 +18,12 @@ st.set_page_config(
 @st.cache_resource
 def get_mongo_connection():
     """Establishes a connection to MongoDB."""
-    mongodb_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+    # Try Streamlit secrets first, then environment variable, then localhost
+    try:
+        mongodb_uri = st.secrets["mongo"]["MONGODB_URI"]
+    except (KeyError, FileNotFoundError):
+        mongodb_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+    
     client = MongoClient(mongodb_uri)
     db = client['agentrix_db']
     return db.advisories

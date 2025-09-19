@@ -44,13 +44,21 @@ class handler(BaseHTTPRequestHandler):
         try:
             # Read and parse request data
             content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                raise ValueError("No data received")
+                
             post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+            except json.JSONDecodeError:
+                raise ValueError("Invalid JSON data")
             
-            # Extract form data
+            # Extract form data with defaults
             gps = data.get('gps', '10.0,76.0')
             soil_type = data.get('soil_type', 'alluvial soil')
             lang = data.get('lang', 'en')
+            
+            print(f"Received data: GPS={gps}, Soil={soil_type}, Lang={lang}")
             
             # Generate agricultural data
             weather_conditions = ["Sunny", "Partly Cloudy", "Rainy", "Overcast"]
@@ -78,11 +86,12 @@ class handler(BaseHTTPRequestHandler):
 🔬 **Status:** AI-powered agricultural analysis complete"""
 
             # Try to save to database
-            advisory_collection = get_database()
             request_id = "no-db"
+            db_success = False
             
-            if advisory_collection:
-                try:
+            try:
+                advisory_collection = get_database()
+                if advisory_collection:
                     result = advisory_collection.insert_one({
                         "gps": gps,
                         "soil_type": soil_type,
@@ -95,11 +104,13 @@ class handler(BaseHTTPRequestHandler):
                         }
                     })
                     request_id = str(result.inserted_id)
+                    db_success = True
                     print(f"Data saved to MongoDB with ID: {request_id}")
-                except Exception as e:
-                    print(f"Database save error: {e}")
+            except Exception as db_error:
+                print(f"Database save error: {db_error}")
+                # Continue anyway - don't fail the request for DB issues
             
-            # Send response
+            # Send successful response
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -110,6 +121,7 @@ class handler(BaseHTTPRequestHandler):
             response = {
                 "success": True,
                 "request_id": request_id,
+                "db_saved": db_success,
                 "advice": {"en": advice, "ml": advice},
                 "data": {
                     "weather": weather_data,
@@ -119,15 +131,23 @@ class handler(BaseHTTPRequestHandler):
             }
             
             self.wfile.write(json.dumps(response).encode())
+            print("Response sent successfully")
             
         except Exception as e:
             print(f"POST error: {e}")
-            self.send_response(500)
+            
+            # Send error response
+            self.send_response(400)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.end_headers()
             
-            error_response = {"success": False, "error": str(e)}
+            error_response = {
+                "success": False, 
+                "error": str(e),
+                "message": "Please check your request format"
+            }
             self.wfile.write(json.dumps(error_response).encode())
 
     def do_OPTIONS(self):

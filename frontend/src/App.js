@@ -15,14 +15,6 @@ function App() {
     setIsLoading(true);
     setAdvice(null);
 
-    const formData = new FormData();
-    formData.append('gps', gps);
-    formData.append('soil_type', soilType);
-    formData.append('lang', 'en'); // Or 'ml' for Malayalam
-    if (leafPhoto) {
-      formData.append('leaf_photo', leafPhoto);
-    }
-
     try {
       const response = await fetch('https://agentrix-silk.vercel.app/api/get-advice', {
         method: 'POST',

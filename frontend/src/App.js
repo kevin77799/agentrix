@@ -26,7 +26,14 @@ function App() {
     try {
       const response = await fetch('https://agentrix-silk.vercel.app/api/get-advice', {
         method: 'POST',
-        body: formData, // Use FormData for file uploads
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gps: gps,
+          soil_type: soilType,
+          lang: 'en'
+        })
       });
 
       const data = await response.json();

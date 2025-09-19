@@ -1,1 +1,1 @@
-# Minimal dependencies for Vercel serverless function
+pymongo>=4.6.0

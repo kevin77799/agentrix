@@ -6,7 +6,6 @@ from typing import Optional
 import os
 import random
 import datetime
-from bson import ObjectId
 import pymongo
 from pymongo import MongoClient
 

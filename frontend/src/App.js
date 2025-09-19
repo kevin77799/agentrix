@@ -6,6 +6,7 @@ import './App.css';
 function App() {
   const [gps, setGps] = useState('17.3850, 78.4867');
   const [soilType, setSoilType] = useState('alluvial soil');
+  const [leafPhoto, setLeafPhoto] = useState(null);
   const [advice, setAdvice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -15,16 +16,18 @@ function App() {
     setAdvice(null);
 
     try {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      formData.append('gps', gps);
+      formData.append('soil_type', soilType);
+      formData.append('lang', 'en');
+      if (leafPhoto) {
+        formData.append('leaf_photo', leafPhoto);
+      }
+
       const response = await fetch('https://agentrix-silk.vercel.app/api/get-advice', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          gps: gps,
-          soil_type: soilType,
-          lang: 'en'
-        })
+        body: formData // Use FormData for file uploads
       });
 
       const data = await response.json();
@@ -54,6 +57,10 @@ function App() {
           <div className="form-group">
             <label htmlFor="soilType">Soil Type</label>
             <input type="text" id="soilType" value={soilType} onChange={(e) => setSoilType(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="leafPhoto">Upload Leaf Photo (Optional)</label>
+            <input type="file" id="leafPhoto" accept="image/*" onChange={(e) => setLeafPhoto(e.target.files[0])} />
           </div>
           <button type="submit" disabled={isLoading}>
             {isLoading ? 'Getting Advice...' : 'Get Farming Advice'}

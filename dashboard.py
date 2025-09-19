@@ -57,14 +57,25 @@ def get_mongo_connection():
         st.stop()
     
     try:
-        client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+        client = MongoClient(
+            mongodb_uri, 
+            serverSelectionTimeoutMS=5000,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+            retryWrites=True
+        )
         # Test the connection
         client.admin.command('ping')
         db = client['agentrix_db']
         return db.advisories
     except Exception as e:
         st.error(f"❌ **Database Connection Failed**: {str(e)}")
-        st.info("Please check your MongoDB Atlas connection string and network settings.")
+        st.info("""
+        **Common fixes:**
+        1. Check if your MongoDB Atlas cluster allows connections from all IP addresses (0.0.0.0/0)
+        2. Verify your username and password are correct
+        3. Make sure your connection string includes the database name
+        """)
         st.stop()
 
 advisory_collection = get_mongo_connection()

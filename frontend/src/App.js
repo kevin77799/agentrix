@@ -1,0 +1,88 @@
+// In frontend/src/App.js
+
+import React, { useState } from 'react';
+import './App.css';
+
+function App() {
+  const [gps, setGps] = useState('17.3850, 78.4867');
+  const [soilType, setSoilType] = useState('alluvial soil');
+  const [leafPhoto, setLeafPhoto] = useState(null);
+  const [advice, setAdvice] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setAdvice(null);
+
+    const formData = new FormData();
+    formData.append('gps', gps);
+    formData.append('soil_type', soilType);
+    formData.append('lang', 'en'); // Or 'ml' for Malayalam
+    if (leafPhoto) {
+      formData.append('leaf_photo', leafPhoto);
+    }
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/get-advice', {
+        method: 'POST',
+        body: formData, // Use FormData for file uploads
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setAdvice(data.advice);
+      } else {
+        setAdvice({ en: `Error: ${data.detail || 'Something went wrong'}` });
+      }
+    } catch (error) {
+      setAdvice({ en: `Error: Could not connect to the backend. Is it running?` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="App">
+      <header className="App-header">
+        <h1>🌾 AgentriX Farming Assistant</h1>
+        <p>Your AI-powered guide for smarter farming in Kerala.</p>
+        <form onSubmit={handleSubmit} className="farm-form">
+          <div className="form-group">
+            <label htmlFor="gps">GPS Location</label>
+            <input type="text" id="gps" value={gps} onChange={(e) => setGps(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="soilType">Soil Type</label>
+            <input type="text" id="soilType" value={soilType} onChange={(e) => setSoilType(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="leafPhoto">Upload Leaf Photo (Optional)</label>
+            <input type="file" id="leafPhoto" onChange={(e) => setLeafPhoto(e.target.files[0])} />
+          </div>
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? 'Getting Advice...' : 'Get Farming Advice'}
+          </button>
+        </form>
+
+        {advice && (
+          <div className="advice-container">
+            <div className="advice-card">
+              <h2>Personalized Advice (English)</h2>
+              <p>{advice.en}</p>
+            </div>
+            {advice.ml && (
+              <div className="advice-card">
+                <h2>വ്യക്തിഗത ഉപദേശം (മലയാളം)</h2>
+                <p>{advice.ml}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </header>
+    </div>
+  );
+}
+
+export default App;

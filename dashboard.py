@@ -4,7 +4,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from pymongo import MongoClient
-from pandas import json_normalize
+try:
+    from pandas import json_normalize
+except ImportError:
+    from pandas.io.json import json_normalize
 import os
 
 # --- Page Configuration ---

@@ -21,15 +21,51 @@ st.set_page_config(
 @st.cache_resource
 def get_mongo_connection():
     """Establishes a connection to MongoDB."""
-    # Try Streamlit secrets first, then environment variable, then localhost
+    # Try multiple methods to get MongoDB URI
+    mongodb_uri = None
+    
+    # Method 1: Try Streamlit secrets
     try:
         mongodb_uri = st.secrets["mongo"]["MONGODB_URI"]
     except (KeyError, FileNotFoundError):
-        mongodb_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        pass
     
-    client = MongoClient(mongodb_uri)
-    db = client['agentrix_db']
-    return db.advisories
+    # Method 2: Try environment variable
+    if not mongodb_uri:
+        mongodb_uri = os.getenv('MONGODB_URI')
+    
+    # Method 3: Try direct from secrets (alternative format)
+    if not mongodb_uri:
+        try:
+            mongodb_uri = st.secrets["MONGODB_URI"]
+        except (KeyError, FileNotFoundError):
+            pass
+    
+    # Method 4: Default (will fail, but gives clear error)
+    if not mongodb_uri:
+        st.error("""
+        ⚠️ **MongoDB Connection Not Configured**
+        
+        Please add your MongoDB connection string to Streamlit Cloud:
+        1. Go to your app settings
+        2. Click on "Secrets" 
+        3. Add this content:
+        ```
+        MONGODB_URI = "mongodb+srv://kevinsjais_db_user:KBHSF2w9XULSB5H5@agentrix-cluster.7pjtvbc.mongodb.net/"
+        ```
+        """)
+        st.stop()
+    
+    try:
+        client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+        # Test the connection
+        client.admin.command('ping')
+        db = client['agentrix_db']
+        return db.advisories
+    except Exception as e:
+        st.error(f"❌ **Database Connection Failed**: {str(e)}")
+        st.info("Please check your MongoDB Atlas connection string and network settings.")
+        st.stop()
 
 advisory_collection = get_mongo_connection()
 
@@ -37,41 +73,48 @@ advisory_collection = get_mongo_connection()
 @st.cache_data(ttl=60) # Cache data for 60 seconds
 def load_data():
     """Loads data from the advisory collection and processes it into a DataFrame."""
-    data = list(advisory_collection.find({"status": "complete"}))
-    
-    if not data:
-        return pd.DataFrame()
-
-    # Normalize the nested JSON structure
-    df = json_normalize(data, sep='_')
-    
-    # FIX: Convert the MongoDB '_id' column to a string to prevent Arrow errors
-    if '_id' in df.columns:
-        df['_id'] = df['_id'].astype(str)
-    
-    # --- Data Cleaning and Feature Engineering ---
-    # Convert timestamp to datetime
-    if 'timestamp' in df.columns:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-    
-    # Check if the GPS column exists before processing it
-    if 'inputs_gps' in df.columns:
-        def parse_gps(gps_str):
-            try:
-                lat, lon = map(float, str(gps_str).split(','))
-                return lat, lon
-            except (ValueError, AttributeError):
-                return None, None
-            
-        df[['latitude', 'longitude']] = df['inputs_gps'].apply(
-            lambda x: pd.Series(parse_gps(x))
-        )
-    else:
-        # If the column doesn't exist, create empty ones to prevent errors later
-        df['latitude'] = None
-        df['longitude'] = None
+    try:
+        # Try to get any data (not just status="complete" since we may not have that field)
+        data = list(advisory_collection.find().limit(100))  # Limit to prevent memory issues
         
-    return df
+        if not data:
+            return pd.DataFrame()
+
+        # Normalize the nested JSON structure
+        df = json_normalize(data, sep='_')
+        
+        # FIX: Convert the MongoDB '_id' column to a string to prevent Arrow errors
+        if '_id' in df.columns:
+            df['_id'] = df['_id'].astype(str)
+        
+        # --- Data Cleaning and Feature Engineering ---
+        # Convert timestamp to datetime
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
+        # Check if any GPS column exists before processing it
+        gps_columns = [col for col in df.columns if 'gps' in col.lower()]
+        if gps_columns:
+            gps_col = gps_columns[0]  # Use first GPS column found
+            def parse_gps(gps_str):
+                try:
+                    lat, lon = map(float, str(gps_str).split(','))
+                    return lat, lon
+                except (ValueError, AttributeError):
+                    return None, None
+                
+            df[['latitude', 'longitude']] = df[gps_col].apply(
+                lambda x: pd.Series(parse_gps(x))
+            )
+        else:
+            # If no GPS column exists, create empty ones to prevent errors later
+            df['latitude'] = None
+            df['longitude'] = None
+            
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return pd.DataFrame()
 
 df = load_data()
 

@@ -6,7 +6,6 @@ import './App.css';
 function App() {
   const [gps, setGps] = useState('17.3850, 78.4867');
   const [soilType, setSoilType] = useState('alluvial soil');
-  const [leafPhoto, setLeafPhoto] = useState(null);
   const [advice, setAdvice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -55,10 +54,6 @@ function App() {
           <div className="form-group">
             <label htmlFor="soilType">Soil Type</label>
             <input type="text" id="soilType" value={soilType} onChange={(e) => setSoilType(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label htmlFor="leafPhoto">Upload Leaf Photo (Optional)</label>
-            <input type="file" id="leafPhoto" onChange={(e) => setLeafPhoto(e.target.files[0])} />
           </div>
           <button type="submit" disabled={isLoading}>
             {isLoading ? 'Getting Advice...' : 'Get Farming Advice'}

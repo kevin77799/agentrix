@@ -24,7 +24,7 @@ function App() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/get-advice', {
+      const response = await fetch('https://agentrix-silk.vercel.app/api/get-advice', {
         method: 'POST',
         body: formData, // Use FormData for file uploads
       });
